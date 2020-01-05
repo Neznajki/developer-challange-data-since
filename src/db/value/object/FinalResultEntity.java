@@ -1,5 +1,7 @@
 package db.value.object;
 
+import java.util.List;
+
 public class FinalResultEntity {
     public static int pointsRequired;
 

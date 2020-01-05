@@ -22,7 +22,25 @@ public class HistoryTable {
             mappedLoans.put(loan.getId(), loan);
         }
 
-        String query = String.format("SELECT * FROM `history` WHERE `loan_id` IN (%s)", String.join(",", idList));
+//        String query = String.format("SELECT * FROM `history` WHERE `loan_id` IN (%s)", String.join(",", idList));
+        String query = String.format("SELECT " +
+                "loan_id," +
+                "GROUP_CONCAT(DISTINCT `status` ORDER BY `status` SEPARATOR \",\") as `status`," +
+                "AVG(delay5) as delay5," +
+                "AVG(delay30) as delay30," +
+                "AVG(delay60) as delay60," +
+                "AVG(delay90) as delay90," +
+                "AVG(delay_more) as delay_more," +
+                "AVG(overdue_days) as overdue_days," +
+                "AVG(loan_amount) as loan_amount," +
+                "AVG(n_prolongations) as n_prolongations," +
+                "AVG(unused_limit) as unused_limit," +
+                "AVG(current_debt) as current_debt," +
+                "AVG(overdue_sum) as overdue_sum," +
+                "AVG(overdue_max) as overdue_max," +
+                "AVG(total_amount_paid) as total_amount_paid," +
+                "COUNT(*) as `count`" +
+                " FROM `history` WHERE `loan_id` IN (%s) GROUP BY loan_id", String.join(",", idList));
         Connection connection = ConnectionStorage.getConnection();
         ResultSet rs = connection.createStatement().executeQuery(query);
 

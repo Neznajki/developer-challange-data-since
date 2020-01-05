@@ -14,7 +14,12 @@ public class LoanTable {
     public List<LoanEntity> getTableDataForTerm(int term) throws SQLException {
         ArrayList<LoanEntity> result = new ArrayList<>();
 
-        String query = String.format("SELECT * FROM `loan` WHERE `term` >= %d", term);
+        String query = String.format(
+                "SELECT * FROM `loan` WHERE `term` >= %d \n" +
+                        "#AND use_for_train = 0\n" +
+                        "#ORDER BY RAND()\n" +
+                        "#LIMIT 1000" +
+                        "", term);
         Connection connection = ConnectionStorage.getConnection();
         ResultSet rs = connection.createStatement().executeQuery(query);
 

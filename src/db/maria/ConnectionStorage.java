@@ -9,6 +9,7 @@ import java.sql.SQLException;
 public class ConnectionStorage {
     private static MariaDbPoolDataSource _connectionPool;
     private static boolean _isTrainDatabase = false;
+//    private static boolean _isTrainDatabase = true;
 
     public static void setDatabaseTest()
     {
@@ -38,5 +39,10 @@ public class ConnectionStorage {
         }
 
         return _connectionPool.getConnection();
+    }
+
+    public static boolean isTrainDatabase()
+    {
+        return _isTrainDatabase;
     }
 }

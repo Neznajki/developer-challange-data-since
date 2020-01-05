@@ -13,9 +13,10 @@ public class MappedRiskDataCollection {
         this.childCollection = childCollection;
     }
 
-    public MappedRiskDataCollection(KnownData knownData)
+    public MappedRiskDataCollection(KnownData knownData, Integer position)
     {
         this.knownData = knownData;
+        this.knownData.index = position;
     }
 
     public boolean isKnownData()

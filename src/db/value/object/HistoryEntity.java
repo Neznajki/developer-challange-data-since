@@ -1,6 +1,7 @@
 package db.value.object;
 
 import contract.MetaDataEntity;
+import staticAccess.Helper;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -24,6 +25,7 @@ public class HistoryEntity implements MetaDataEntity {
             collection.put("delay90", new TableColumnMetaData("delay90", "smallint"));
             collection.put("delay_more", new TableColumnMetaData("delay_more", "smallint"));
             collection.put("overdue_days", new TableColumnMetaData("overdue_days", "smallint"));
+            collection.put("count", new TableColumnMetaData("count", "smallint"));
 
             collection.put("loan_amount", new TableColumnMetaData("loan_amount", "float"));
             collection.put("n_prolongations", new TableColumnMetaData("n_prolongations", "float"));
@@ -45,13 +47,14 @@ public class HistoryEntity implements MetaDataEntity {
 
     protected Integer id;
     protected Integer loanId;
-    protected Byte status;
+    protected Integer status;
     protected Short delay5;
     protected Short delay30;
     protected Short delay60;
     protected Short delay90;
     protected Short delayMore;
     protected Short overdueDays;
+    protected Short count;
 
     protected Float loanAmount;
     protected Float nProlongations;
@@ -73,9 +76,15 @@ public class HistoryEntity implements MetaDataEntity {
     }
 
     private void setDataFromResultSet(ResultSet resultSet) throws SQLException {
-        this.id = resultSet.getInt("id");
+        try {
+            this.id = resultSet.getInt("id");
+            this.isDataTrash = resultSet.getBoolean("is_data_trash");
+        }catch (Exception e) {}
+        try {
+            this.count = resultSet.getShort("count");
+        } catch (Exception e) {}
         this.loanId = resultSet.getInt("loan_id");
-        this.status = resultSet.getByte("status");
+        this.status = Helper.convertStringComaToInteger(resultSet.getString("status"));
         this.delay5 = resultSet.getShort("delay5");
         this.delay30 = resultSet.getShort("delay30");
         this.delay60 = resultSet.getShort("delay60");
@@ -91,7 +100,7 @@ public class HistoryEntity implements MetaDataEntity {
         this.overdueMax = resultSet.getFloat("overdue_max");
         this.totalAmountPaid = resultSet.getFloat("total_amount_paid");
 
-        this.isDataTrash = resultSet.getBoolean("is_data_trash");
+
     }
 
     public LoanEntity getLoanEntity() {
@@ -106,7 +115,7 @@ public class HistoryEntity implements MetaDataEntity {
         return loanId;
     }
 
-    public Byte getStatus() {
+    public Integer getStatus() {
         return status;
     }
 
@@ -132,6 +141,10 @@ public class HistoryEntity implements MetaDataEntity {
 
     public Short getOverdueDays() {
         return overdueDays;
+    }
+
+    public Short getCount() {
+        return count;
     }
 
     public Float getLoanAmount() {

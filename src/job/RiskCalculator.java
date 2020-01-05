@@ -1,8 +1,11 @@
 package job;
 
+import concurrency.ResultRisk;
 import contract.MetaDataEntity;
+import db.maria.ConnectionStorage;
 import db.value.object.HistoryEntity;
 import db.value.object.LoanEntity;
+import db.value.object.PointAdjustmentEntity;
 import job.data.holder.RiskDataHolder;
 import job.data.holder.SearchData;
 import json.*;
@@ -21,17 +24,17 @@ public class RiskCalculator {
         this.riskDataHolders = riskDataHolders;
     }
 
-    public Integer getHistoryRiskPoints(LoanEntity loanEntity) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    public Integer getHistoryRiskPoints(LoanEntity loanEntity, ResultRisk loanRisk) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         Integer result = 0;
 
         for (HistoryEntity historyEntity: loanEntity.getHistoryEntityList()) {
-            result += this.calculateSingleHistoryRecord(loanEntity, historyEntity);
+            result += this.calculateSingleHistoryRecord(loanEntity, historyEntity, loanRisk);
         }
 
         return result;
     }
 
-    protected Integer calculateSingleHistoryRecord(LoanEntity loanEntity, HistoryEntity historyEntity) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    protected Integer calculateSingleHistoryRecord(LoanEntity loanEntity, HistoryEntity historyEntity, ResultRisk loanRisk) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         int result = 0;
         int allowedSuccessPercent = 80, failPercent = 40;
         float delimiterStep = 5;
@@ -43,31 +46,37 @@ public class RiskCalculator {
                 continue;
             }
 
-            if (knownData.total < 5) {
+            if (knownData.total < 4) {
                 continue;
             }
 
             if (knownData.successRate >= allowedSuccessPercent) {
-                int ceil = (int) Math.ceil((knownData.successRate - allowedSuccessPercent) / delimiterStep * knownData.total / loanEntity.getHistoryEntityList().size());
+                int ceil = (int) Math.ceil((knownData.successRate - allowedSuccessPercent) / delimiterStep * knownData.total * 0.07);
                 result -= ceil;
                 Helper.successFound++;
+
+                addTrace(loanEntity, loanRisk, knownHistoryFileContent, knownData, -ceil);
             } else if (knownData.successRate <= failPercent) {
-                int ceil = (int) Math.ceil((failPercent - knownData.successRate) * knownData.total / delimiterStep * loanEntity.getHistoryEntityList().size());
+                int ceil = (int) Math.ceil((failPercent - knownData.successRate) * knownData.total);
                 result += ceil;
                 Helper.failedFound++;
+                addTrace(loanEntity, loanRisk, knownHistoryFileContent, knownData, ceil);
             }
-            //            if ($knownRisk->getTotals() > 5) {
-            //                $allowedSuccessPercent = 25;
-            //
-            //                if ($knownRisk->getRiskChance() >= 100-$allowedSuccessPercent) {
-            //                    return (int)ceil((1+$allowedSuccessPercent - 80 + $knownRisk->getRiskChance()) / 5 * -$knownRisk->getSuccess());
-            //                } elseif ($knownRisk->getRiskChance() <= $allowedSuccessPercent) {
-            //                    return (int)ceil(1+$allowedSuccessPercent - $knownRisk->getRiskChance() / 5 * $knownRisk->getSuccess());
-            //                }
-            //            }
         }
 
         return result;
+    }
+
+    private void addTrace(LoanEntity loanEntity, ResultRisk loanRisk, RiskDataHolder knownHistoryFileContent, KnownData knownData, int ceil) {
+        if (ConnectionStorage.isTrainDatabase()) {
+            loanRisk.addPointAdjustment(
+                    new PointAdjustmentEntity(
+                            knownHistoryFileContent.getExistingFileEntity().getId(),
+                            loanEntity.getId(),
+                            knownData.index,
+                            ceil
+                    ));
+        }
     }
 
     protected KnownData getRiskByEntityData(LoanEntity loanEntity, HistoryEntity historyEntity, RiskDataHolder riskDataHolder) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {

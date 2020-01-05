@@ -24,7 +24,7 @@ public class CalculateHistoryRiskTask implements Callable<List<ResultRisk>> {
             ResultRisk loanRisk = new ResultRisk(loan);
             this.resultSet.add(loanRisk);
 
-            loanRisk.addPoints(riskCalculator.getHistoryRiskPoints(loan));
+            loanRisk.addPoints(riskCalculator.getHistoryRiskPoints(loan, loanRisk));
         }
 
         return this.resultSet;

@@ -5,7 +5,8 @@ public class KnownData {
     public Integer total;
     public Integer success;
     public Integer failures;
-    public Integer[] data;
+    public String[] data;
+    public Integer index;
     //            "successRate": 100,
     //            "total": 2,
     //            "success": 2,
