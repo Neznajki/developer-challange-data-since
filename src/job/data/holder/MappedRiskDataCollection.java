@@ -38,6 +38,7 @@ public class MappedRiskDataCollection {
                 if (closestIndex == null) {
                     closestIndex = possibleIndexValue;
                     indexApproxValue = getApproxValue(searchData, possibleIndexValue);
+                    continue;
                 }
 
                 int tmpApprox = this.getApproxValue(searchData, possibleIndexValue);

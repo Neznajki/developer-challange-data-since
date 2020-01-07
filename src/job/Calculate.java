@@ -24,62 +24,72 @@ public class Calculate {
         int minTerm = Integer.parseInt(args[1]);
         FinalResultEntity.pointsRequired = -Integer.parseInt(args[0]);
 
-        LoanTable loanSelector = new LoanTable();
-
         try {
-            List<LoanEntity> data = loanSelector.getTableDataForTerm(minTerm);
-
-            DataSplitter splitData = new DataSplitter(data);
-
-            List<ResultRisk> riskResults = calculateResultData(splitData, gatherRequiredData( splitData));
-
+            int maxIterations = 1;
             if (ConnectionStorage.isTrainDatabase()) {
-                var pointAdjustmentTable = new PointAdjustmentTable();
-                pointAdjustmentTable.truncateData();
-                pointAdjustmentTable.addAdjustmentData(riskResults);
+                maxIterations = 15;
             }
-
-            List<FinalResultEntity> finalResultEntityList = new ArrayList<>();
-            HashMap<Integer, FinalResultEntity> mappedResultEntity = new HashMap<>();
-            for (ResultRisk resultRisk: riskResults) {
-                Integer loanId = resultRisk.getLoan().getId();
-                FinalResultEntity entity = mappedResultEntity.get(loanId);
-                if (entity == null) {
-                    entity = new FinalResultEntity(loanId, resultRisk.getPoints());
-                    finalResultEntityList.add(entity);
-                    mappedResultEntity.put(loanId, entity);
-
-                    continue;
-                }
-
-                entity.addPoints(resultRisk.getPoints());
+            for (int i=1; i<maxIterations +1; i++) {
+                Settings.trainNumber = i;
+                doCalculationIteration(minTerm);
             }
-
-            System.out.println("done entity creation");
-
-            FinalResultTable resultTable = new FinalResultTable();
-
-            resultTable.saveResults(finalResultEntityList);
-            if (ConnectionStorage.isTrainDatabase()) {
-                resultTable.displayFinalResults();
-            }
-            System.out.println(String.format("done s(%d) f(%d)", Helper.successFound, Helper.failedFound));
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static void doCalculationIteration(int minTerm) throws SQLException, ExecutionException, InterruptedException {
+        LoanTable loanSelector = new LoanTable();
+//        List<LoanEntity> data = loanSelector.getTableDataForTerm();
+        List<LoanEntity> data = loanSelector.getTableDataForTerm(minTerm);
+
+        DataSplitter splitData = new DataSplitter(data);
+
+        List<ResultRisk> riskResults = calculateResultData(splitData, gatherRequiredData(splitData));
+
+        if (ConnectionStorage.isTrainDatabase()) {
+            var pointAdjustmentTable = new PointAdjustmentTable();
+//            pointAdjustmentTable.addAdjustmentData(riskResults);
+        }
+
+        List<FinalResultEntity> finalResultEntityList = new ArrayList<>();
+        HashMap<Integer, FinalResultEntity> mappedResultEntity = new HashMap<>();
+        for (ResultRisk resultRisk : riskResults) {
+            Integer loanId = resultRisk.getLoan().getId();
+            FinalResultEntity entity = mappedResultEntity.get(loanId);
+            if (entity == null) {
+                entity = new FinalResultEntity(loanId, resultRisk.getPoints());
+                finalResultEntityList.add(entity);
+                mappedResultEntity.put(loanId, entity);
+
+                continue;
+            }
+
+            entity.addPoints(resultRisk.getPoints());
+        }
+
+        System.out.println("done entity creation");
+
+        FinalResultTable resultTable = new FinalResultTable();
+
+        resultTable.saveResults(finalResultEntityList);
+        if (ConnectionStorage.isTrainDatabase()) {
+            resultTable.displayFinalResults();
+        }
+        System.out.println(String.format("done s(%d) f(%d)", Helper.successFound, Helper.failedFound));
     }
 
     private static List<RiskDataHolder> gatherRequiredData(DataSplitter splitData) throws InterruptedException, java.util.concurrent.ExecutionException, SQLException {
         List<Future<List<LoanEntity>>> futures = new ArrayList<>();
         ExecutorService executorService = Executors.newFixedThreadPool(Settings.getMaxThreads());
 
-        for (List<LoanEntity> loanList: splitData.getThreadDataCollection()) {
+        for (List<LoanEntity> loanList : splitData.getThreadDataCollection()) {
             futures.add(executorService.submit(new HistoryGatherTask(loanList)));
         }
 
         List<RiskDataHolder> knownHistoryDataList = getRiskDataHolders();
 
-        for (Future<List<LoanEntity>> future: futures) {
+        for (Future<List<LoanEntity>> future : futures) {
             future.get();
         }
 
@@ -94,26 +104,27 @@ public class Calculate {
                 Settings.getMaxThreads()
         );
 
-        List<File> knownHistoryFiles = FileSystem.getAllDirectoryFiles("/work/java/metadata/history/");
+        List<File> knownHistoryFiles = FileSystem.getAllDirectoryFiles(String.format("/work/java/metadata/history%d/", Settings.trainNumber));
 
         List<RiskDataHolder> knownHistoryDataList = new ArrayList<>();
+        var existingFilesTable = new ExistingFilesTable();
+        List<String> ignoreFileList =  existingFilesTable.ignorableFiles();
 
-        for (File historyFile: knownHistoryFiles) {
+        for (File historyFile : knownHistoryFiles) {
+            if (ignoreFileList.indexOf(historyFile.getAbsolutePath().intern()) >= 0) {
+                continue;
+            }
+
             futures.add(executorService.submit(new ReadJsonDataTask(historyFile)));
         }
 
-        for (Future<RiskDataHolder> future: futures) {
+        for (Future<RiskDataHolder> future : futures) {
             knownHistoryDataList.add(future.get());
         }
 
         executorService.shutdown();
 
-        if (ConnectionStorage.isTrainDatabase()) {
-            var existingFilesTable = new ExistingFilesTable();
-            existingFilesTable.truncateData();
-            existingFilesTable.updateCreateFileEntity(knownHistoryDataList);
-
-        }
+        existingFilesTable.updateCreateFileEntity(knownHistoryDataList);
 
         return knownHistoryDataList;
     }
@@ -125,12 +136,12 @@ public class Calculate {
         );
         RiskCalculator riskCalculator = new RiskCalculator(knownHistoryDataList);
 
-        for (List<LoanEntity> loanList: splitData.getThreadDataCollection()) {
+        for (List<LoanEntity> loanList : splitData.getThreadDataCollection()) {
             futures.add(executorService.submit(new CalculateHistoryRiskTask(loanList, riskCalculator)));
         }
 
         List<ResultRisk> result = new ArrayList<>();
-        for (Future<List<ResultRisk>> future: futures) {
+        for (Future<List<ResultRisk>> future : futures) {
             result.addAll(future.get());
         }
 

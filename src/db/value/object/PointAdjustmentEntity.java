@@ -5,12 +5,14 @@ public class PointAdjustmentEntity {
     private Integer loanId;
     private Integer index;
     private Integer change;
+    private boolean knownSuccess;
 
-    public PointAdjustmentEntity(Integer existingFileId, Integer loanId, Integer index, Integer change) {
+    public PointAdjustmentEntity(Integer existingFileId, Integer loanId, Integer index, Integer change, boolean knownSuccess) {
         this.existingFileId = existingFileId;
         this.loanId = loanId;
         this.index = index;
         this.change = change;
+        this.knownSuccess = knownSuccess;
     }
 
     public Integer getExistingFileId() {
@@ -28,5 +30,9 @@ public class PointAdjustmentEntity {
     public Integer getChange()
     {
         return change;
+    }
+
+    public boolean getKnownSuccess() {
+        return knownSuccess;
     }
 }
