@@ -48,7 +48,13 @@ public class ExistingFilesTable {
                     rs.getInt("positive_ef_coef"),
                     rs.getInt("positive_success_coef"),
                     rs.getInt("negative_ef_coef"),
-                    rs.getInt("negative_success_coef")
+                    rs.getInt("negative_success_coef"),
+                    rs.getInt("positive_files"),
+                    rs.getInt("positive_success_files"),
+                    rs.getInt("negative_files"),
+                    rs.getInt("negative_success_files"),
+                    rs.getInt("positive_total_files"),
+                    rs.getInt("negative_total_files")
             );
 
             if (holderHashMap.get(entity.getFileName()) == null) {

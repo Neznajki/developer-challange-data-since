@@ -19,12 +19,16 @@ public class CalculateHistoryRiskTask implements Callable<List<ResultRisk>> {
     }
 
     @Override
-    public List<ResultRisk> call() throws Exception {
-        for (LoanEntity loan: this.loanEntities) {
-            ResultRisk loanRisk = new ResultRisk(loan);
-            this.resultSet.add(loanRisk);
+    public List<ResultRisk> call() {
+        try {
+            for (LoanEntity loan: this.loanEntities) {
+                ResultRisk loanRisk = new ResultRisk(loan);
+                this.resultSet.add(loanRisk);
 
-            loanRisk.addPoints(riskCalculator.getHistoryRiskPoints(loan, loanRisk));
+                loanRisk.addPoints(riskCalculator.getHistoryRiskPoints(loan, loanRisk));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         return this.resultSet;

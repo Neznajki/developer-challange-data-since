@@ -38,7 +38,7 @@ public class RiskCalculator {
 
     protected Integer calculateSingleHistoryRecord(LoanEntity loanEntity, HistoryEntity historyEntity, ResultRisk loanRisk) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         int result = 0;
-        int allowedSuccessPercent = 80, failPercent = 40;
+        int allowedSuccessPercent = 99, failPercent = 30;
         float delimiterStep = 1;
 
         for (RiskDataHolder knownHistoryFileContent : this.riskDataHolders) {
@@ -53,40 +53,24 @@ public class RiskCalculator {
             }
 
             ExistingFileEntity existingFileEntity = knownHistoryFileContent.getExistingFileEntity();
-            int minCoef = 10;
             if (knownData.successRate >= allowedSuccessPercent) {
-                if (
-                        existingFileEntity.getNegativeCoefficient() < Settings.negativeRequired ||
-                        existingFileEntity.getNegativeSuccessCoefficient() > Settings.negativeSuccessRequired
-                ) {
-
-                    continue;
+                Integer negativeMultiplyCoefficient = existingFileEntity.getNegativeMultiplyCoefficient();
+                if (negativeMultiplyCoefficient == 0) {
+                    return result;
                 }
-
-                int sumCoef = (existingFileEntity.getNegativeSuccessCoefficient() - existingFileEntity.getNegativeCoefficient()) * -1;
-                if (sumCoef < minCoef) {
-                    continue;
-                }
-                int coef = sumCoef ;
-
-                int ceil = (int) Math.ceil((knownData.successRate - allowedSuccessPercent) / delimiterStep * knownData.total * coef);
+                int ceil = (int) Math.ceil((knownData.successRate - allowedSuccessPercent) / delimiterStep * knownData.total * negativeMultiplyCoefficient);
                 result -= ceil;
                 Helper.successFound++;
 
                 addTrace(loanEntity, loanRisk, knownHistoryFileContent, knownData, -ceil);
             } else if (knownData.successRate <= failPercent) {
-                if (
-                        existingFileEntity.getPositiveCoefficient() > Settings.positiveRequired ||
-                        existingFileEntity.getPositiveFailureCoefficient() < Settings.positiveSuccessRequired
-                ) {
-                    continue;
-                }
-                int coef = existingFileEntity.getPositiveFailureCoefficient() - existingFileEntity.getPositiveCoefficient();
-                if (coef < minCoef) {
-                    continue;
+                Integer positiveMultiplyCoefficient = existingFileEntity.getPositiveMultiplyCoefficient();
+
+                if (positiveMultiplyCoefficient == 0) {
+                    return result;
                 }
 
-                int ceil = (int) Math.ceil((failPercent - knownData.successRate) * knownData.total * coef);
+                int ceil = (int) Math.ceil((failPercent - knownData.successRate) * knownData.total * positiveMultiplyCoefficient);
                 result += ceil;
                 Helper.failedFound++;
                 addTrace(loanEntity, loanRisk, knownHistoryFileContent, knownData, ceil);
@@ -137,26 +121,7 @@ public class RiskCalculator {
             i++;
         }
 
-        KnownData result = riskDataHolder.getKnownData(entityData);
-
-//        if (result.successRate >= 80) {
-//            this.printDebug(entityData, result);
-//        }
-
-        return result;
-    }
-
-    protected void printDebug(SearchData[] searchDataList, KnownData knownData) {
-        List<String> searchValues = new ArrayList<>();
-
-        for (SearchData searchData : searchDataList) {
-            searchValues.add(String.valueOf(searchData.index));
-        }
-
-
-        System.out.println(String.join(",", searchValues));
-        System.out.println(String.join(",", knownData.data));
-        System.out.println("");
+        return riskDataHolder.getKnownData(entityData);
     }
 
     protected MetaDataEntity getTargetEntity(FieldMapping metaData, LoanEntity loanEntity, HistoryEntity historyEntity) {

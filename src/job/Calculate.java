@@ -26,26 +26,29 @@ public class Calculate {
 
         try {
             int maxIterations = 1;
+            List<RiskDataHolder> knownHistoryDataList = getRiskDataHolders();
+
             if (ConnectionStorage.isTrainDatabase()) {
                 maxIterations = 15;
             }
             for (int i=1; i<maxIterations +1; i++) {
                 Settings.trainNumber = i;
-                doCalculationIteration(minTerm);
+                doCalculationIteration(knownHistoryDataList, minTerm);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void doCalculationIteration(int minTerm) throws SQLException, ExecutionException, InterruptedException {
+    private static void doCalculationIteration(List<RiskDataHolder> knownHistoryDataList, int minTerm) throws SQLException, ExecutionException, InterruptedException {
         LoanTable loanSelector = new LoanTable();
 //        List<LoanEntity> data = loanSelector.getTableDataForTerm();
         List<LoanEntity> data = loanSelector.getTableDataForTerm(minTerm);
 
         DataSplitter splitData = new DataSplitter(data);
 
-        List<ResultRisk> riskResults = calculateResultData(splitData, gatherRequiredData(splitData));
+        gatherRequiredData(splitData);
+        List<ResultRisk> riskResults = calculateResultData(splitData, knownHistoryDataList);
 
         if (ConnectionStorage.isTrainDatabase()) {
             var pointAdjustmentTable = new PointAdjustmentTable();
@@ -79,7 +82,7 @@ public class Calculate {
         System.out.println(String.format("done s(%d) f(%d)", Helper.successFound, Helper.failedFound));
     }
 
-    private static List<RiskDataHolder> gatherRequiredData(DataSplitter splitData) throws InterruptedException, java.util.concurrent.ExecutionException, SQLException {
+    private static void gatherRequiredData(DataSplitter splitData) throws InterruptedException, java.util.concurrent.ExecutionException {
         List<Future<List<LoanEntity>>> futures = new ArrayList<>();
         ExecutorService executorService = Executors.newFixedThreadPool(Settings.getMaxThreads());
 
@@ -87,15 +90,12 @@ public class Calculate {
             futures.add(executorService.submit(new HistoryGatherTask(loanList)));
         }
 
-        List<RiskDataHolder> knownHistoryDataList = getRiskDataHolders();
-
         for (Future<List<LoanEntity>> future : futures) {
             future.get();
         }
 
         executorService.shutdown();
         System.out.println("done required data gathering");
-        return knownHistoryDataList;
     }
 
     private static List<RiskDataHolder> getRiskDataHolders() throws ExecutionException, InterruptedException, SQLException {
@@ -108,12 +108,12 @@ public class Calculate {
 
         List<RiskDataHolder> knownHistoryDataList = new ArrayList<>();
         var existingFilesTable = new ExistingFilesTable();
-        List<String> ignoreFileList =  existingFilesTable.ignorableFiles();
+//        List<String> ignoreFileList =  existingFilesTable.ignorableFiles();
 
         for (File historyFile : knownHistoryFiles) {
-            if (ignoreFileList.indexOf(historyFile.getAbsolutePath().intern()) >= 0) {
-                continue;
-            }
+//            if (ignoreFileList.indexOf(historyFile.getAbsolutePath().intern()) >= 0) {
+//                continue;
+//            }
 
             futures.add(executorService.submit(new ReadJsonDataTask(historyFile)));
         }
@@ -125,6 +125,8 @@ public class Calculate {
         executorService.shutdown();
 
         existingFilesTable.updateCreateFileEntity(knownHistoryDataList);
+
+        System.out.println(String.format("received  %d history files", knownHistoryDataList.size()));
 
         return knownHistoryDataList;
     }
